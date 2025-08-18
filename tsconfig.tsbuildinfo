@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/card.tsx","./src/components/gameboard.tsx","./src/components/gamecontrols.tsx","./src/components/gameovermodal.tsx","./src/hooks/usememorygame.ts","./src/types/index.ts","./src/utils/gameutils.ts"],"version":"5.8.3"}

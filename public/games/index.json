@@ -1,0 +1,28 @@
+{
+  "games": [
+    {
+      "id": "initial",
+      "title": "Initial Memory",
+      "logo": "/images/logo.png",
+      "cards": [
+        "/images/initialPhotos/1.png",
+        "/images/initialPhotos/2.png",
+        "/images/initialPhotos/3.png",
+        "/images/initialPhotos/4.png",
+        "/images/initialPhotos/5.png",
+        "/images/initialPhotos/6.png"
+      ]
+    },
+    {
+      "id": "game2",
+      "title": "Second Game",
+      "logo": "/images/game2/logo2.png",
+      "cards": [
+        "/images/game2/ML 2025.png",
+        "/images/game2/ELEVIA 2025.png",
+        "/images/game2/LORICA 2025.png",
+        "/images/game2/OPTILINE 2025.png"
+      ]
+    }
+  ]
+}

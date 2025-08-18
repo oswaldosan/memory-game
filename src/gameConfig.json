@@ -1,0 +1,77 @@
+{
+  "gameSettings": {
+    "theme": {
+      "cardBackColor": "#4a90e2",
+      "cardBorderRadius": "8px",
+      "cardPadding": "10px",
+      "layout": {
+        "backgroundType": "gradient",
+        "backgroundColor": "#667eea",
+        "gradientStart": "#667eea",
+        "gradientEnd": "#764ba2",
+        "gradientDirection": "135deg"
+      },
+      "gameBoard": {
+        "backgroundColor": "rgba(255, 255, 255, 0.1)",
+        "borderRadius": "15px"
+      },
+      "controls": {
+        "backgroundColor": "rgba(255, 255, 255, 0.1)",
+        "borderRadius": "15px"
+      },
+      "modal": {
+        "backgroundType": "gradient",
+        "gradientStart": "#667eea",
+        "gradientEnd": "#764ba2",
+        "gradientDirection": "135deg"
+      }
+    },
+    "logo": {
+      "url": "/images/logo.png",
+      "width": "80px",
+      "height": "80px"
+    },
+    "board": {
+      "rows": 3,
+      "cols": 3,
+      "totalPairs": 6,
+      "maxMoves": 20,
+      "cardSize": {
+        "width": "115px",
+        "height": "161px"
+      }
+    }
+  },
+  "cards": [
+    {
+      "id": 1,
+      "image": "/images/initialPhotos/1.png",
+      "matched": false
+    },
+    {
+      "id": 2,
+      "image": "/images/initialPhotos/2.png",
+      "matched": false
+    },
+    {
+      "id": 3,
+      "image": "/images/initialPhotos/3.png",
+      "matched": false
+    },
+    {
+      "id": 4,
+      "image": "/images/initialPhotos/4.png",
+      "matched": false
+    },
+    {
+      "id": 5,
+      "image": "/images/initialPhotos/5.png",
+      "matched": false
+    },
+    {
+      "id": 6,
+      "image": "/images/initialPhotos/6.png",
+      "matched": false
+    }
+  ]
+}
