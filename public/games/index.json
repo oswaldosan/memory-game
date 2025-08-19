@@ -22,7 +22,32 @@
         "/images/game2/ELEVIA 2025.png",
         "/images/game2/LORICA 2025.png",
         "/images/game2/OPTILINE 2025.png"
-      ]
+      ],
+      "theme": {
+        "layout": {
+          "backgroundType": "gradient",
+          "gradientStart": "#C8102E",
+          "gradientEnd": "#7d0a1d",
+          "gradientDirection": "135deg"
+        },
+        "cardBackColor": "#C8102E",
+        "buttons": {
+          "baseStart": "#C8102E",
+          "baseEnd": "#9e0d25",
+          "textColor": "#ffffff",
+          "primaryStart": "#ffffff",
+          "primaryEnd": "#f2f2f2",
+          "primaryTextColor": "#C8102E"
+        },
+        "controlsBg": "rgba(255, 255, 255, 0.12)",
+        "gameBoardBg": "rgba(255, 255, 255, 0.12)",
+        "modal": {
+          "backgroundType": "gradient",
+          "gradientStart": "#C8102E",
+          "gradientEnd": "#7d0a1d",
+          "gradientDirection": "135deg"
+        }
+      }
     }
   ]
 }

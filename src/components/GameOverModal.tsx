@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { GameOverModalProps } from '../types';
 import gameConfig from '../gameConfig.json';
+import { resolveGameAssets } from '../utils/gameUtils';
 
 const GameOverModal: React.FC<GameOverModalProps> = ({ 
   isOpen, 
@@ -12,17 +13,19 @@ const GameOverModal: React.FC<GameOverModalProps> = ({
   const [modalStyle, setModalStyle] = useState<React.CSSProperties>({});
 
   useEffect(() => {
-    const { modal } = gameConfig.gameSettings.theme;
-    
-    if (modal.backgroundType === 'gradient') {
-      setModalStyle({
-        background: `linear-gradient(${modal.gradientDirection}, ${modal.gradientStart} 0%, ${modal.gradientEnd} 100%)`
-      });
-    } else {
-      setModalStyle({
-        backgroundColor: '#667eea'
-      });
-    }
+    const base = gameConfig.gameSettings.theme.modal as any;
+    resolveGameAssets().then(({ theme }) => {
+      const modal = theme?.modal ? { ...base, ...theme.modal } : base;
+      if (modal.backgroundType === 'gradient') {
+        setModalStyle({
+          background: `linear-gradient(${modal.gradientDirection}, ${modal.gradientStart} 0%, ${modal.gradientEnd} 100%)`
+        });
+      } else {
+        setModalStyle({
+          backgroundColor: modal.backgroundColor || '#667eea'
+        });
+      }
+    });
   }, []);
 
   if (!isOpen) return null;

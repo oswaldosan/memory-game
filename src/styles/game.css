@@ -6,6 +6,12 @@
   --game-board-radius: 15px;
   --controls-bg: rgba(255, 255, 255, 0.1);
   --controls-radius: 15px;
+  --btn-base-start: #4a90e2;
+  --btn-base-end: #357ab8;
+  --btn-text: #ffffff;
+  --btn-primary-start: #4CAF50;
+  --btn-primary-end: #45a049;
+  --btn-primary-text: #ffffff;
 }
 
 .app {
@@ -15,6 +21,19 @@
   background: var(--app-background);
   min-height: 100vh;
   color: white;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 10px;
+  margin-bottom: 10px;
+}
+
+.brand-logo {
+  max-width: 200px;
+  max-height: 200px;
 }
 
 .app h1 {
@@ -65,7 +84,7 @@
 }
 
 .card-front {
-  background-color: #4a90e2;
+  background-color: #4a90e2; /* overwritten inline via prop */
 }
 
 .card-back {
@@ -178,8 +197,8 @@
   padding: 12px 24px;
   border: none;
   border-radius: 8px;
-  background: linear-gradient(45deg, #4a90e2, #357ab8);
-  color: white;
+  background: linear-gradient(45deg, var(--btn-base-start), var(--btn-base-end));
+  color: var(--btn-text);
   cursor: pointer;
   font-size: 16px;
   font-weight: bold;
@@ -240,7 +259,8 @@
 }
 
 .button.primary {
-  background: linear-gradient(45deg, #4CAF50, #45a049);
+  background: linear-gradient(45deg, var(--btn-primary-start), var(--btn-primary-end));
+  color: var(--btn-primary-text);
 }
 
 .button.secondary {

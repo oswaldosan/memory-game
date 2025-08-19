@@ -40,11 +40,40 @@ export const getGameConfig = async (): Promise<any> => {
   return response.json();
 };
 
+export interface GameThemeOverride {
+  layout?: {
+    backgroundType?: 'solid' | 'gradient';
+    backgroundColor?: string;
+    gradientStart?: string;
+    gradientEnd?: string;
+    gradientDirection?: string;
+  };
+  cardBackColor?: string;
+  buttons?: {
+    baseStart?: string;
+    baseEnd?: string;
+    textColor?: string;
+    primaryStart?: string;
+    primaryEnd?: string;
+    primaryTextColor?: string;
+  };
+  controlsBg?: string;
+  gameBoardBg?: string;
+  modal?: {
+    backgroundType?: 'solid' | 'gradient';
+    backgroundColor?: string;
+    gradientStart?: string;
+    gradientEnd?: string;
+    gradientDirection?: string;
+  };
+}
+
 export interface GameRegistryEntry {
   id: string;
   title: string;
   logo: string;
   cards: string[];
+  theme?: GameThemeOverride;
 }
 
 export interface GameRegistry {
@@ -63,9 +92,9 @@ export const getGameIdFromUrl = (): string => {
 
 export const resolveGameAssets = async (
   explicitGameId?: string
-): Promise<{ images: string[]; logoUrl: string; gameId: string; title: string }> => {
+): Promise<{ images: string[]; logoUrl: string; gameId: string; title: string; theme?: GameThemeOverride }> => {
   const registry = await loadGameRegistry();
   const gameId = explicitGameId || getGameIdFromUrl();
   const entry = registry.games.find(g => g.id === gameId) || registry.games[0];
-  return { images: entry.cards, logoUrl: entry.logo, gameId: entry.id, title: entry.title };
+  return { images: entry.cards, logoUrl: entry.logo, gameId: entry.id, title: entry.title, theme: entry.theme };
 };
