@@ -31,6 +31,7 @@
           "gradientDirection": "135deg"
         },
         "cardBackColor": "#C8102E",
+        "cardFaceBgColor": "#ffffff",
         "buttons": {
           "baseStart": "#C8102E",
           "baseEnd": "#9e0d25",
@@ -45,6 +46,44 @@
           "backgroundType": "gradient",
           "gradientStart": "#C8102E",
           "gradientEnd": "#7d0a1d",
+          "gradientDirection": "135deg"
+        }
+      }
+    },
+    {
+      "id": "game3",
+      "title": "Third Game",
+      "logo": "/images/game3/logocoacehl.png",
+      "cards": [
+        "/images/game3/ardilla.png",
+        "/images/game3/ahorro.png",
+        "/images/game3/benficios.png",
+        "/images/game3/empieza.png",
+        "/images/game3/logocoacehl.png"
+      ],
+      "theme": {
+        "layout": {
+          "backgroundType": "gradient",
+          "gradientStart": "#e7620a",
+          "gradientEnd": "#b34e08",
+          "gradientDirection": "135deg"
+        },
+        "cardBackColor": "#e7620a",
+        "cardFaceBgColor": "#1f1f1f",
+        "buttons": {
+          "baseStart": "#e7620a",
+          "baseEnd": "#b34e08",
+          "textColor": "#ffffff",
+          "primaryStart": "#ffffff",
+          "primaryEnd": "#f2f2f2",
+          "primaryTextColor": "#e7620a"
+        },
+        "controlsBg": "rgba(255, 255, 255, 0.12)",
+        "gameBoardBg": "rgba(255, 255, 255, 0.12)",
+        "modal": {
+          "backgroundType": "gradient",
+          "gradientStart": "#e7620a",
+          "gradientEnd": "#b34e08",
           "gradientDirection": "135deg"
         }
       }

@@ -49,6 +49,7 @@ export interface GameThemeOverride {
     gradientDirection?: string;
   };
   cardBackColor?: string;
+  cardFaceBgColor?: string;
   buttons?: {
     baseStart?: string;
     baseEnd?: string;

@@ -26,6 +26,7 @@ const App: React.FC = () => {
   const [gameTitle, setGameTitle] = useState<string>('');
   const [override, setOverride] = useState<GameThemeOverride | undefined>(undefined);
   const cardBackColor = override?.cardBackColor || gameConfig.gameSettings.theme.cardBackColor;
+  const cardFaceBgColor = override?.cardFaceBgColor;
 
   useEffect(() => {
     const applyTheme = (ov?: GameThemeOverride) => {
@@ -94,6 +95,7 @@ const App: React.FC = () => {
         onCardClick={handleCardClick}
         disabled={isGameOver || gameStatus === 'paused'}
         cardBackColor={cardBackColor}
+        cardFaceBgColor={cardFaceBgColor}
         backLogoUrl={backLogoUrl}
       />
       <GameOverModal

@@ -9,10 +9,11 @@ interface GameBoardProps {
   cards: CardType[];
   onCardClick: (card: CardType) => void;
   cardBackColor?: string;
+  cardFaceBgColor?: string;
   backLogoUrl?: string;
 }
 
-const GameBoard: React.FC<GameBoardProps> = ({ cards, onCardClick, cardBackColor, backLogoUrl }) => {
+const GameBoard: React.FC<GameBoardProps> = ({ cards, onCardClick, cardBackColor, cardFaceBgColor, backLogoUrl }) => {
   const { gameStatus } = useMemoryGame();
 
   return (
@@ -26,6 +27,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ cards, onCardClick, cardBackColor
             flipped={card.flipped}
             disabled={gameStatus !== 'playing'}
             cardBackColor={cardBackColor}
+            cardFaceBgColor={cardFaceBgColor}
             backLogoUrl={backLogoUrl}
           />
         ))

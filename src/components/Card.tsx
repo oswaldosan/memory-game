@@ -7,10 +7,11 @@ interface CardProps {
   flipped?: boolean;
   disabled?: boolean;
   cardBackColor?: string;
+  cardFaceBgColor?: string;
   backLogoUrl?: string;
 }
 
-const Card: React.FC<CardProps> = ({ card, onClick, cardBackColor = '#4a90e2', backLogoUrl }) => {
+const Card: React.FC<CardProps> = ({ card, onClick, cardBackColor = '#4a90e2', cardFaceBgColor, backLogoUrl }) => {
   const handleClick = () => {
     onClick(card);
   };
@@ -21,7 +22,7 @@ const Card: React.FC<CardProps> = ({ card, onClick, cardBackColor = '#4a90e2', b
         <div className="card-front" style={{ backgroundColor: cardBackColor }}>
           {backLogoUrl && <img src={backLogoUrl} alt="card back" className="card-logo" />}
         </div>
-        <div className="card-back">
+        <div className="card-back" style={{ backgroundColor: cardFaceBgColor }}>
           <img src={card.image} alt="card" className="card-image" />
         </div>
       </div>

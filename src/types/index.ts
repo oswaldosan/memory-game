@@ -67,6 +67,7 @@ export interface CardProps {
   onClick: (card: Card) => void;
   disabled?: boolean;
   cardBackColor?: string;
+  cardFaceBgColor?: string;
   backLogoUrl?: string;
 }
 
@@ -75,6 +76,7 @@ export interface GameBoardProps {
   onCardClick: (card: Card) => void;
   disabled?: boolean;
   cardBackColor?: string;
+  cardFaceBgColor?: string;
   backLogoUrl?: string;
 }
 
