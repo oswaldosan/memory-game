@@ -4,23 +4,26 @@
       "cardBackColor": "#4a90e2",
       "cardBorderRadius": "8px",
       "cardPadding": "10px",
+      "appTextColor": "#1a1a1a",
+      "modalTextColor": "#1a1a1a",
       "layout": {
-        "backgroundType": "gradient",
-        "backgroundColor": "#667eea",
+        "backgroundType": "solid",
+        "backgroundColor": "#ffffff",
         "gradientStart": "#667eea",
         "gradientEnd": "#764ba2",
         "gradientDirection": "135deg"
       },
       "gameBoard": {
-        "backgroundColor": "rgba(255, 255, 255, 0.1)",
+        "backgroundColor": "#f0f0f0",
         "borderRadius": "15px"
       },
       "controls": {
-        "backgroundColor": "rgba(255, 255, 255, 0.1)",
+        "backgroundColor": "#f0f0f0",
         "borderRadius": "15px"
       },
       "modal": {
-        "backgroundType": "gradient",
+        "backgroundType": "solid",
+        "backgroundColor": "#ffffff",
         "gradientStart": "#667eea",
         "gradientEnd": "#764ba2",
         "gradientDirection": "135deg"

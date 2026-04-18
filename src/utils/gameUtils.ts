@@ -48,6 +48,10 @@ export interface GameThemeOverride {
     gradientEnd?: string;
     gradientDirection?: string;
   };
+  /** Color del texto principal (stats, labels) sobre el fondo de la app */
+  appTextColor?: string;
+  /** Texto del modal de fin de juego */
+  modalTextColor?: string;
   cardBackColor?: string;
   cardFaceBgColor?: string;
   buttons?: {

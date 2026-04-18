@@ -36,8 +36,20 @@ const App: React.FC<AppProps> = ({ routeGameId }) => {
   useEffect(() => {
     const applyTheme = (ov?: GameThemeOverride) => {
       const root = document.documentElement;
+      const baseTheme = gameConfig.gameSettings.theme as GameThemeOverride & {
+        appTextColor?: string;
+        modalTextColor?: string;
+      };
       const baseLayout = gameConfig.gameSettings.theme.layout;
-      const layout = ov?.layout ? { ...baseLayout, ...ov.layout } : baseLayout;
+      const layout = {
+        ...baseLayout,
+        ...ov?.layout,
+      } as NonNullable<GameThemeOverride['layout']>;
+      const baseAppText = ov?.appTextColor ?? baseTheme.appTextColor ?? '#1a1a1a';
+      const baseModalText = ov?.modalTextColor ?? baseTheme.modalTextColor ?? baseAppText;
+      root.style.setProperty('--app-foreground', baseAppText);
+      root.style.setProperty('--modal-foreground', baseModalText);
+
       if (layout.backgroundType === 'gradient') {
         root.style.setProperty('--app-background',
           `linear-gradient(${layout.gradientDirection}, ${layout.gradientStart} 0%, ${layout.gradientEnd} 100%)`

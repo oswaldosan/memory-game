@@ -24,6 +24,8 @@
         "/images/game2/OPTILINE.png"
       ],
       "theme": {
+        "appTextColor": "#ffffff",
+        "modalTextColor": "#ffffff",
         "layout": {
           "backgroundType": "gradient",
           "gradientStart": "#C8102E",
@@ -62,6 +64,8 @@
         "/images/game3/logocoacehl.png"
       ],
       "theme": {
+        "appTextColor": "#ffffff",
+        "modalTextColor": "#ffffff",
         "layout": {
           "backgroundType": "gradient",
           "gradientStart": "#e7620a",
@@ -95,8 +99,11 @@
       "cards": [],
       "useFicohsaAssetBundle": true,
       "theme": {
+        "appTextColor": "#1a1a1a",
+        "modalTextColor": "#1a1a1a",
         "layout": {
-          "backgroundType": "gradient",
+          "backgroundType": "solid",
+          "backgroundColor": "#ffffff",
           "gradientStart": "#003d7a",
           "gradientEnd": "#001a33",
           "gradientDirection": "135deg"
@@ -110,10 +117,11 @@
           "primaryEnd": "#008a44",
           "primaryTextColor": "#ffffff"
         },
-        "controlsBg": "rgba(255, 255, 255, 0.1)",
-        "gameBoardBg": "rgba(255, 255, 255, 0.1)",
+        "controlsBg": "#f0f0f0",
+        "gameBoardBg": "#f0f0f0",
         "modal": {
-          "backgroundType": "gradient",
+          "backgroundType": "solid",
+          "backgroundColor": "#ffffff",
           "gradientStart": "#003d7a",
           "gradientEnd": "#001a33",
           "gradientDirection": "135deg"
