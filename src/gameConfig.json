@@ -34,7 +34,7 @@
     "board": {
       "rows": 3,
       "cols": 3,
-      "totalPairs": 6,
+      "totalPairs": 5,
       "maxMoves": 20,
       "cardSize": {
         "width": "115px",

@@ -4,10 +4,15 @@ import GameControls from './components/GameControls';
 import GameOverModal from './components/GameOverModal';
 import { useMemoryGame } from './hooks/useMemoryGame';
 import gameConfig from './gameConfig.json';
-import { resolveGameAssets, GameThemeOverride } from './utils/gameUtils';
+import { resolveGameAssets, GameThemeOverride, resolveEffectiveGameId } from './utils/gameUtils';
 import './styles/game.css';
 
-const App: React.FC = () => {
+export type AppProps = {
+  /** When set (e.g. `/ficohsa`), this game wins over `?game=`. */
+  routeGameId?: string;
+};
+
+const App: React.FC<AppProps> = ({ routeGameId }) => {
   const {
     cards,
     handleCardClick,
@@ -18,7 +23,7 @@ const App: React.FC = () => {
     totalPairs,
     moves,
     maxMoves,
-  } = useMemoryGame();
+  } = useMemoryGame(routeGameId);
 
   const isWin = gameStatus === 'won';
 
@@ -67,13 +72,13 @@ const App: React.FC = () => {
   }, [override]);
 
   useEffect(() => {
-    // Load dynamic game assets and overrides based on game ID
-    resolveGameAssets().then(({ logoUrl, theme, title }) => {
+    const id = resolveEffectiveGameId(routeGameId);
+    resolveGameAssets(id).then(({ logoUrl, theme, title }) => {
       setBackLogoUrl(logoUrl);
       setOverride(theme);
       setGameTitle(title);
     });
-  }, []);
+  }, [routeGameId]);
 
   return (
     <div className="app">

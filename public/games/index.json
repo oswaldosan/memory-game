@@ -87,6 +87,38 @@
           "gradientDirection": "135deg"
         }
       }
+    },
+    {
+      "id": "ficohsa",
+      "title": "Ficohsa Memory",
+      "logo": "/logos/ficohsa/logo.png",
+      "cards": [],
+      "useFicohsaAssetBundle": true,
+      "theme": {
+        "layout": {
+          "backgroundType": "gradient",
+          "gradientStart": "#003d7a",
+          "gradientEnd": "#001a33",
+          "gradientDirection": "135deg"
+        },
+        "cardBackColor": "#003d7a",
+        "buttons": {
+          "baseStart": "#0056b3",
+          "baseEnd": "#003d7a",
+          "textColor": "#ffffff",
+          "primaryStart": "#00a651",
+          "primaryEnd": "#008a44",
+          "primaryTextColor": "#ffffff"
+        },
+        "controlsBg": "rgba(255, 255, 255, 0.1)",
+        "gameBoardBg": "rgba(255, 255, 255, 0.1)",
+        "modal": {
+          "backgroundType": "gradient",
+          "gradientStart": "#003d7a",
+          "gradientEnd": "#001a33",
+          "gradientDirection": "135deg"
+        }
+      }
     }
   ]
 }

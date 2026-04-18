@@ -3,22 +3,26 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "sync:ficohsa": "node scripts/sync-ficohsa-assets.mjs",
+    "predev": "npm run sync:ficohsa",
     "dev": "vite",
+    "prebuild": "npm run sync:ficohsa",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.14.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.4.1",
-    "typescript": "~5.8.3",
-    "eslint": "^9.25.0",
     "@eslint/js": "^9.25.0",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^4.4.1",
+    "eslint": "^9.25.0",
+    "typescript": "~5.8.3",
     "vite": "^6.3.5"
   }
 }

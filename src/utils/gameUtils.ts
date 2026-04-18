@@ -75,6 +75,8 @@ export interface GameRegistryEntry {
   logo: string;
   cards: string[];
   theme?: GameThemeOverride;
+  /** Si es true, se fusionan cartas/logo desde /games/ficohsa.assets.json (generado por scripts/sync-ficohsa-assets.mjs). */
+  useFicohsaAssetBundle?: boolean;
 }
 
 export interface GameRegistry {
@@ -91,11 +93,70 @@ export const getGameIdFromUrl = (): string => {
   return params.get('game') || 'initial';
 };
 
+/** When navigating by route (e.g. `/ficohsa`), pass `routeGameId`. Otherwise `?game=` applies. */
+export const resolveEffectiveGameId = (routeGameId?: string): string => {
+  if (routeGameId) {
+    return routeGameId;
+  }
+  return getGameIdFromUrl();
+};
+
+export interface FicohsaAssetBundle {
+  cards: string[];
+  logo?: string;
+}
+
+let ficohsaBundleCache: FicohsaAssetBundle | null | undefined;
+
+export const loadFicohsaAssetBundle = async (): Promise<FicohsaAssetBundle | null> => {
+  if (ficohsaBundleCache !== undefined) {
+    return ficohsaBundleCache;
+  }
+  try {
+    const res = await fetch('/games/ficohsa.assets.json', { cache: 'no-store' });
+    if (!res.ok) {
+      ficohsaBundleCache = null;
+      return null;
+    }
+    const data = (await res.json()) as FicohsaAssetBundle;
+    if (!Array.isArray(data.cards)) {
+      ficohsaBundleCache = null;
+      return null;
+    }
+    ficohsaBundleCache = data;
+    return data;
+  } catch {
+    ficohsaBundleCache = null;
+    return null;
+  }
+};
+
+/** Solo útil en tests o hot-reload del bundle en dev */
+export const clearFicohsaAssetBundleCache = (): void => {
+  ficohsaBundleCache = undefined;
+};
+
 export const resolveGameAssets = async (
   explicitGameId?: string
 ): Promise<{ images: string[]; logoUrl: string; gameId: string; title: string; theme?: GameThemeOverride }> => {
   const registry = await loadGameRegistry();
   const gameId = explicitGameId || getGameIdFromUrl();
   const entry = registry.games.find(g => g.id === gameId) || registry.games[0];
-  return { images: entry.cards, logoUrl: entry.logo, gameId: entry.id, title: entry.title, theme: entry.theme };
+
+  let images = entry.cards;
+  let logoUrl = entry.logo;
+
+  if (entry.useFicohsaAssetBundle || entry.id === 'ficohsa') {
+    const bundle = await loadFicohsaAssetBundle();
+    if (bundle) {
+      if (bundle.cards.length > 0) {
+        images = bundle.cards;
+      }
+      if (bundle.logo) {
+        logoUrl = bundle.logo;
+      }
+    }
+  }
+
+  return { images, logoUrl, gameId: entry.id, title: entry.title, theme: entry.theme };
 };

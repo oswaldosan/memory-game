@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Card, GameState } from '../types';
-import { createGameCards, resolveGameAssets } from '../utils/gameUtils';
+import { createGameCards, resolveGameAssets, resolveEffectiveGameId } from '../utils/gameUtils';
 import gameConfig from '../gameConfig.json';
 
-export const useMemoryGame = () => {
+export const useMemoryGame = (routeGameId?: string) => {
   const [cards, setCards] = useState<Card[]>([]);
   const [flippedCards, setFlippedCards] = useState<Card[]>([]);
   const [matchedPairs, setMatchedPairs] = useState(0);
@@ -14,9 +14,24 @@ export const useMemoryGame = () => {
 
   const maxMoves = gameConfig.gameSettings.board.maxMoves;
 
+  const initializeGame = useCallback(async () => {
+    const id = resolveEffectiveGameId(routeGameId);
+    const { images, gameId } = await resolveGameAssets(id);
+    const pairs = Math.min(images.length, gameConfig.gameSettings.board.totalPairs);
+    setTotalPairs(pairs);
+    const selected = images.slice(0, pairs);
+    const gameCards = createGameCards(selected);
+    setCards(gameCards);
+    setFlippedCards([]);
+    setMatchedPairs(0);
+    setGameStatus('playing');
+    setMoves(0);
+    setCurrentGameId(gameId);
+  }, [routeGameId]);
+
   useEffect(() => {
-    initializeGame();
-  }, []);
+    void initializeGame();
+  }, [initializeGame]);
 
   useEffect(() => {
     if (matchedPairs === totalPairs && gameStatus === 'playing') {
@@ -64,20 +79,6 @@ export const useMemoryGame = () => {
     }
   }, [flippedCards]);
 
-  const initializeGame = async (explicitGameId?: string) => {
-    const { images, gameId } = await resolveGameAssets(explicitGameId);
-    const pairs = Math.min(images.length, gameConfig.gameSettings.board.totalPairs);
-    setTotalPairs(pairs);
-    const selected = images.slice(0, pairs);
-    const gameCards = createGameCards(selected);
-    setCards(gameCards);
-    setFlippedCards([]);
-    setMatchedPairs(0);
-    setGameStatus('playing');
-    setMoves(0);
-    setCurrentGameId(gameId);
-  };
-
   const handleCardClick = (clickedCard: Card) => {
     if (
       gameStatus !== 'playing' ||
@@ -100,11 +101,21 @@ export const useMemoryGame = () => {
   };
 
   const handleNewGame = () => {
-    initializeGame();
+    void initializeGame();
   };
 
   const handleSelectGame = (gameId: string) => {
-    initializeGame(gameId);
+    void resolveGameAssets(gameId).then(({ images }) => {
+      const pairs = Math.min(images.length, gameConfig.gameSettings.board.totalPairs);
+      setTotalPairs(pairs);
+      const selected = images.slice(0, pairs);
+      setCards(createGameCards(selected));
+      setFlippedCards([]);
+      setMatchedPairs(0);
+      setGameStatus('playing');
+      setMoves(0);
+      setCurrentGameId(gameId);
+    });
   };
 
   const handlePauseGame = () => {
