@@ -9,8 +9,9 @@ root.render(
   <React.StrictMode>
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<App />} />
-        <Route path="/ficohsa" element={<App routeGameId="ficohsa" />} />
+        {/* Ficohsa es el juego principal por ahora (evita depender de /ficohsa en producción). */}
+        <Route path="/" element={<App routeGameId="ficohsa" />} />
+        <Route path="/ficohsa" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
