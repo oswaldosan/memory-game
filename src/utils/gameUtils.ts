@@ -88,8 +88,18 @@ export interface GameRegistry {
 }
 
 export const loadGameRegistry = async (): Promise<GameRegistry> => {
-  const response = await fetch('/games/index.json');
-  return response.json();
+  const staticPromise = fetch('/games/index.json')
+    .then((r) => r.json() as Promise<GameRegistry>)
+    .catch(() => ({ games: [] as GameRegistryEntry[] }));
+
+  const remotePromise = import('./gamesRemote')
+    .then((m) => m.loadRemoteGames())
+    .catch(() => [] as GameRegistryEntry[]);
+
+  const [staticReg, remote] = await Promise.all([staticPromise, remotePromise]);
+  const ids = new Set((staticReg.games || []).map((g) => g.id));
+  const merged = [...(staticReg.games || []), ...remote.filter((g) => !ids.has(g.id))];
+  return { games: merged };
 };
 
 export const getGameIdFromUrl = (): string => {
