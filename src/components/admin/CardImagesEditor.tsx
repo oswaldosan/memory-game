@@ -1,4 +1,4 @@
-import React, { useId, useRef, useState } from 'react';
+import React, { useId, useMemo, useRef, useState } from 'react';
 import {
   itemSrc,
   nextItemKey,
@@ -8,10 +8,20 @@ import {
 } from '../../utils/cardItems';
 import { moveItem } from '../../utils/gameUtils';
 import { ACCEPT_ATTRIBUTE } from '../../utils/imageProcessing';
+import {
+  contentKeyFromMd5,
+  findDuplicateIndices,
+  hashFile,
+  screenByContent,
+  type FileHashes,
+} from '../../utils/imageIdentity';
+import { mapWithConcurrency } from '../../utils/async';
+
+type ItemsUpdate = CardItem[] | ((prev: CardItem[]) => CardItem[]);
 
 interface CardImagesEditorProps {
   items: CardItem[];
-  onChange: (items: CardItem[]) => void;
+  onChange: (next: ItemsUpdate) => void;
   disabled?: boolean;
   error?: string;
   warning?: string;
@@ -37,26 +47,64 @@ const CardImagesEditor: React.FC<CardImagesEditorProps> = ({
   const [rejected, setRejected] = useState<RejectedFile[]>([]);
   const [announcement, setAnnouncement] = useState('');
 
-  const addFiles = (files: File[]) => {
+  const [analyzing, setAnalyzing] = useState(0);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+
+  const addFiles = async (files: File[]) => {
     if (disabled || files.length === 0) return;
-    const { accepted, rejected: rej } = screenFiles(items, files);
-    setRejected(rej);
-    if (accepted.length > 0) {
-      const added: CardItem[] = accepted.map((file) => ({
-        key: nextItemKey(),
-        kind: 'local',
-        file,
-        previewUrl: URL.createObjectURL(file),
-      }));
-      onChange([...items, ...added]);
-      setAnnouncement(
-        `${accepted.length} ${accepted.length === 1 ? 'imagen agregada' : 'imágenes agregadas'}. Total: ${items.length + accepted.length}.`
-      );
+    const { accepted, rejected: rej } = screenFiles(itemsRef.current, files);
+    if (accepted.length === 0) {
+      setRejected(rej);
+      return;
     }
+
+    // Hash the original bytes so the same picture can't be added twice, even under another name.
+    setAnalyzing((n) => n + accepted.length);
+    let hashes: (FileHashes | null)[];
+    try {
+      hashes = await mapWithConcurrency(accepted, 3, (f) => hashFile(f).catch(() => null));
+    } finally {
+      setAnalyzing((n) => n - accepted.length);
+    }
+
+    // Re-read the latest list: the user may have edited it while we were hashing.
+    const current = itemsRef.current;
+    const screened = screenByContent(
+      accepted.map((f, i) => ({ name: f.name, key: hashes[i] ? contentKeyFromMd5(hashes[i]!.md5) : null })),
+      current.map((it) => it.contentKey ?? null)
+    );
+    setRejected([...rej, ...screened.rejected]);
+    if (screened.acceptedIndices.length === 0) return;
+
+    const added: CardItem[] = screened.acceptedIndices.map((i) => ({
+      key: nextItemKey(),
+      kind: 'local',
+      file: accepted[i],
+      previewUrl: URL.createObjectURL(accepted[i]),
+      hashes: hashes[i],
+      contentKey: hashes[i] ? contentKeyFromMd5(hashes[i]!.md5) : null,
+    }));
+    onChange((prev) => [...prev, ...added]);
+    setAnnouncement(
+      `${added.length} ${added.length === 1 ? 'imagen agregada' : 'imágenes agregadas'}. Total: ${current.length + added.length}.`
+    );
+  };
+
+  /** Cards whose picture repeats an earlier card (detected by content, not URL). */
+  const duplicates = useMemo(() => findDuplicateIndices(items.map((i) => i.contentKey ?? null)), [items]);
+  const duplicateOf = useMemo(() => new Map(duplicates.map((d) => [d.index, d.duplicateOf])), [duplicates]);
+
+  const removeDuplicates = () => {
+    const drop = new Set(duplicates.map((d) => items[d.index].key));
+    const removed = items.filter((i) => drop.has(i.key));
+    removed.forEach((i) => i.kind === 'local' && URL.revokeObjectURL(i.previewUrl));
+    onChange(items.filter((i) => !drop.has(i.key)));
+    setAnnouncement(`${removed.length} ${removed.length === 1 ? 'imagen duplicada quitada' : 'imágenes duplicadas quitadas'}.`);
   };
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    addFiles(Array.from(e.target.files ?? []));
+    void addFiles(Array.from(e.target.files ?? []));
     // Reset so picking the same file(s) again still fires `change` (Chrome skips identical selections).
     e.target.value = '';
   };
@@ -65,7 +113,7 @@ const CardImagesEditor: React.FC<CardImagesEditorProps> = ({
     e.preventDefault();
     setDragOver(false);
     if (dragKey) return; // internal reorder drag, not a file drop
-    addFiles(Array.from(e.dataTransfer.files));
+    void addFiles(Array.from(e.dataTransfer.files));
   };
 
   const remove = (index: number) => {
@@ -148,6 +196,28 @@ const CardImagesEditor: React.FC<CardImagesEditorProps> = ({
       )}
       {!error && warning && <p className="adm-field__warning">{warning}</p>}
 
+      {analyzing > 0 && (
+        <p className="adm-field__hint" role="status">
+          Analizando {analyzing} {analyzing === 1 ? 'imagen' : 'imágenes'}…
+        </p>
+      )}
+
+      {duplicates.length > 0 && (
+        <div className="adm-alert adm-alert--warning" role="alert">
+          <span>
+            <strong>
+              {duplicates.length === 1
+                ? 'Este juego tiene 1 imagen repetida.'
+                : `Este juego tiene ${duplicates.length} imágenes repetidas.`}
+            </strong>{' '}
+            Las imágenes repetidas forman parejas que no se pueden emparejar entre sí. Quítalas y guarda.
+          </span>
+          <button type="button" className="adm-btn adm-btn--sm" onClick={removeDuplicates} disabled={disabled}>
+            Quitar duplicadas
+          </button>
+        </div>
+      )}
+
       {rejected.length > 0 && (
         <div className="adm-alert adm-alert--warning" role="alert">
           <div>
@@ -176,7 +246,7 @@ const CardImagesEditor: React.FC<CardImagesEditorProps> = ({
             <li
               key={item.key}
               data-key={item.key}
-              className={`adm-thumb${dragKey === item.key ? ' is-dragging' : ''}`}
+              className={`adm-thumb${dragKey === item.key ? ' is-dragging' : ''}${duplicateOf.has(index) ? ' is-duplicate' : ''}`}
               draggable={!disabled}
               onDragStart={(e) => {
                 setDragKey(item.key);
@@ -200,7 +270,11 @@ const CardImagesEditor: React.FC<CardImagesEditorProps> = ({
               <div className="adm-thumb__media">
                 <img src={itemSrc(item)} alt={`Imagen ${index + 1}`} loading="lazy" draggable={false} />
                 <span className="adm-thumb__badge">{index + 1}</span>
-                {item.kind === 'local' && <span className="adm-chip adm-chip--new adm-thumb__new">Nueva</span>}
+                {duplicateOf.has(index) ? (
+                  <span className="adm-chip adm-chip--dup adm-thumb__new">Repite la {duplicateOf.get(index)! + 1}</span>
+                ) : (
+                  item.kind === 'local' && <span className="adm-chip adm-chip--new adm-thumb__new">Nueva</span>
+                )}
               </div>
               <div className="adm-thumb__actions">
                 <button

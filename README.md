@@ -62,6 +62,24 @@ Both are merged by `loadGameRegistry()` (`src/utils/gameUtils.ts`). Static ids w
 - Images are downscaled in the browser before upload (WebP, or JPEG on browsers that can't
   encode WebP; images with transparency keep their original format).
 - When editing, images that are no longer used are removed from Storage after a successful save.
+- Duplicate pictures are blocked by content, not by file name: the editor hashes each selected
+  file and compares it with the other new files and with the saved cards (Storage `md5Hash`, read
+  from the CORS-enabled metadata endpoint). Games that already contain repeated pictures are
+  flagged in the list and the edit form ("Quitar duplicadas"); the game itself also merges cards
+  with identical content into a single pair.
+- New card images are stored content-addressed (`games/{id}/cards/{sha256}.{ext}`, with
+  `customMetadata.sourceMd5`/`sourceSha256` of the original file). If that object already exists
+  it is reused, not overwritten, and a failed save only rolls back objects created by that save.
+  Objects still referenced by the saved game are never deleted.
+
+### Known limitation: two admins editing the same game at once
+
+Saves are last-write-wins. If two admins save the same game at nearly the same time, the second
+save replaces the first one's card list. After saving, the editor re-reads the game before cleaning
+up Storage, so files referenced by the latest saved version are normally kept. Images that only the
+overwritten save added can stay in Storage unreferenced (wasted space). In a very rare race where
+both admins add the same picture while one of them removes it, a card image can go missing; re-save
+the game with that image to fix it. Avoid editing the same game from two places at once.
 
 ## Project structure
 

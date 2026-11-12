@@ -24,6 +24,7 @@ import {
 import type { ProgressFn, ProgressPhase, RemoteGameInput } from '../../utils/gamesRemote';
 import { ACCEPT_ATTRIBUTE, MAX_SOURCE_BYTES, formatBytes, isAcceptedImage } from '../../utils/imageProcessing';
 import CardImagesEditor from './CardImagesEditor';
+import { fetchContentKeys } from '../../utils/imageIdentity';
 import ThemePreview from './ThemePreview';
 
 export interface GameFormInitial {
@@ -114,6 +115,32 @@ const GameForm: React.FC<GameFormProps> = ({
   useEffect(() => () => {
     if (logoPreview) URL.revokeObjectURL(logoPreview);
   }, [logoPreview]);
+
+  // Resolve content keys of saved cards (from Storage metadata) so duplicates can be flagged.
+  // Best effort: lookups that fail are marked `null` and never retried in this session.
+  const pendingRemoteUrls = items
+    .filter((i): i is Extract<CardItem, { kind: 'remote' }> => i.kind === 'remote' && i.contentKey === undefined)
+    .map((i) => i.url);
+  const pendingKey = pendingRemoteUrls.join('\n');
+  useEffect(() => {
+    if (!pendingKey) return;
+    let cancelled = false;
+    const urls = pendingKey.split('\n');
+    void fetchContentKeys(urls, { timeoutMs: 8000 }).then((keys) => {
+      if (cancelled) return;
+      const asked = new Set(urls);
+      setItems((prev) =>
+        prev.map((i) =>
+          i.kind === 'remote' && i.contentKey === undefined && asked.has(i.url)
+            ? { ...i, contentKey: keys.get(i.url) ?? null }
+            : i
+        )
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingKey]);
 
   // Revoke any remaining blob previews when the form unmounts.
   const itemsRef = useRef(items);

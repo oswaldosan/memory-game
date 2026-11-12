@@ -16,12 +16,15 @@ import {
   listAll,
   ref,
   uploadBytesResumable,
+  getMetadata,
   type StorageReference,
 } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import { mapWithConcurrency } from './async';
 import { DEFAULT_LOGO, type GameRegistryEntry, type GameThemeOverride } from './gameUtils';
 import { prepareImageForUpload } from './imageProcessing';
+import { contentAddressedName, hashFile, storageIdentity, type FileHashes } from './imageIdentity';
+import { filterDeletable, planUniqueUploads } from './uploadPlan';
 
 /**
  * Card images are uploaded to Firebase Storage and only their download URLs are stored
@@ -30,7 +33,10 @@ import { prepareImageForUpload } from './imageProcessing';
  */
 
 /** An ordered card slot: either an already-uploaded URL or a new local file. */
-export type CardSource = { kind: 'remote'; url: string } | { kind: 'local'; file: File };
+export type CardSource =
+  | { kind: 'remote'; url: string }
+  /** `hashes` of the ORIGINAL file (computed in the editor); recomputed here if missing. */
+  | { kind: 'local'; file: File; hashes?: FileHashes };
 
 export interface RemoteGameInput {
   id: string;
@@ -112,7 +118,24 @@ export const remoteGameExists = async (id: string): Promise<boolean> =>
 interface UploadJob {
   file: File;
   path: string;
+  customMetadata?: Record<string, string>;
+  /**
+   * Content-addressed target: if an object already exists at `path` it already holds this
+   * content, so reuse it instead of overwriting (and never treat it as ours to roll back).
+   */
+  reuseIfExists?: boolean;
 }
+
+type ExistsState = 'exists' | 'missing' | 'unknown';
+
+const objectExists = async (r: StorageReference): Promise<ExistsState> => {
+  try {
+    await getMetadata(r);
+    return 'exists';
+  } catch (err) {
+    return (err as { code?: string })?.code === 'storage/object-not-found' ? 'missing' : 'unknown';
+  }
+};
 
 /** Uploads files with bounded concurrency and reports aggregated byte progress. */
 const uploadAll = async (
@@ -134,19 +157,36 @@ const uploadAll = async (
   report();
   return mapWithConcurrency(jobs, UPLOAD_CONCURRENCY, async (job, i) => {
     const r = ref(storage, job.path);
+    const markDone = () => {
+      transferred[i] = job.file.size;
+      done++;
+      report();
+    };
+
+    // Only objects this attempt actually CREATED may be rolled back. If we can't tell whether
+    // the object existed before ('unknown'), we upload but never schedule it for deletion.
+    let createdHere = true;
+    if (job.reuseIfExists) {
+      const state = await objectExists(r);
+      if (state === 'exists') {
+        markDone();
+        return getDownloadURL(r);
+      }
+      createdHere = state === 'missing';
+    }
+
     const task = uploadBytesResumable(r, job.file, {
       contentType: job.file.type || undefined,
       cacheControl: 'public, max-age=31536000, immutable',
+      customMetadata: job.customMetadata,
     });
-    task.on('state_changed', (s) => {
-      transferred[i] = s.bytesTransferred;
+    task.on('state_changed', (snap) => {
+      transferred[i] = snap.bytesTransferred;
       report();
     });
     await task;
-    uploaded.push(r);
-    transferred[i] = job.file.size;
-    done++;
-    report();
+    if (createdHere) uploaded.push(r);
+    markDone();
     return getDownloadURL(r);
   });
 };
@@ -175,35 +215,53 @@ const uploadGameAssets = async (
   id: string,
   cards: CardSource[],
   logoFile: File | null | undefined,
+  protectedIds: ReadonlySet<string>,
   onProgress?: ProgressFn
-): Promise<{ cardUrls: string[]; logoUrl?: string; uploaded: StorageReference[] }> => {
+): Promise<{ cardUrls: string[]; logoUrl?: string; created: StorageReference[] }> => {
   const basePath = `games/${id}`;
-  const localFiles = cards.flatMap((c) => (c.kind === 'local' ? [c.file] : []));
-  const toPrepare = logoFile ? [...localFiles, logoFile] : localFiles;
+  const localCards = cards.flatMap((c) => (c.kind === 'local' ? [c] : []));
+  // Hash the ORIGINAL bytes (before resizing) so the identity matches what the editor checked.
+  const hashes = await mapWithConcurrency(localCards, 2, async (c) => c.hashes ?? hashFile(c.file));
+  const toPrepare = localCards.map((c) => c.file);
+  if (logoFile) toPrepare.push(logoFile);
   const prepared = await prepareAll(toPrepare, onProgress);
+  const preparedCards = prepared.slice(0, localCards.length);
 
-  const jobs: UploadJob[] = prepared.map((file, i) => {
-    const isLogo = logoFile && i === prepared.length - 1;
+  // Content-addressed: the same picture always lands on the same object/URL.
+  const cardPaths = preparedCards.map(
+    (file, i) => `${basePath}/cards/${contentAddressedName(hashes[i], extOf(file))}`
+  );
+  // Identical content in this batch → ONE upload (no concurrent writes to the same object).
+  const plan = planUniqueUploads(cardPaths);
+  const jobs: UploadJob[] = plan.jobs.map(({ path, firstIndex }) => {
+    const h = hashes[firstIndex];
     return {
-      file,
-      path: isLogo ? `${basePath}/${uniqueName(file, 'logo')}` : `${basePath}/cards/${uniqueName(file, 'card')}`,
+      file: preparedCards[firstIndex],
+      path,
+      reuseIfExists: true,
+      customMetadata: { sourceMd5: h.md5, ...(h.sha256 ? { sourceSha256: h.sha256 } : {}) },
     };
   });
+  if (logoFile) jobs.push({ file: prepared[prepared.length - 1], path: `${basePath}/${uniqueName(logoFile, 'logo')}` });
 
-  const uploaded: StorageReference[] = [];
+  const created: StorageReference[] = [];
   let urls: string[];
   try {
-    urls = await uploadAll(jobs, onProgress, uploaded);
+    urls = await uploadAll(jobs, onProgress, created);
   } catch (err) {
-    await bestEffortDelete(uploaded);
+    await bestEffortDelete(filterDeletable(created, protectedIds));
     throw err;
   }
 
-  const logoUrl = logoFile ? urls.pop() : undefined;
+  const logoUrl = logoFile ? urls[urls.length - 1] : undefined;
   let next = 0;
-  const cardUrls = cards.map((c) => (c.kind === 'remote' ? c.url : urls[next++]));
-  return { cardUrls, logoUrl, uploaded };
+  const cardUrls = cards.map((c) => (c.kind === 'remote' ? c.url : urls[plan.jobIndexFor[next++]]));
+  return { cardUrls, logoUrl, created: filterDeletable(created, protectedIds) };
 };
+
+/** Exact identities (bucket/path) of every object a game references. */
+const referencedIds = (urls: readonly (string | undefined)[]) =>
+  new Set(urls.filter((u): u is string => !!u).map(storageIdentity));
 
 export const createRemoteGame = async (
   input: RemoteGameInput,
@@ -216,7 +274,7 @@ export const createRemoteGame = async (
   // The transaction below is what actually guarantees we never overwrite a game.
   if (await remoteGameExists(id)) throw new GameIdTakenError(id);
 
-  const { cardUrls, logoUrl, uploaded } = await uploadGameAssets(id, cards, logoFile, onProgress);
+  const { cardUrls, logoUrl, created } = await uploadGameAssets(id, cards, logoFile, new Set(), onProgress);
 
   const entry: GameRegistryEntry = {
     id,
@@ -236,7 +294,7 @@ export const createRemoteGame = async (
       tx.set(docRef, { ...entry, createdBy: uid, createdAt: serverTimestamp() });
     });
   } catch (err) {
-    await bestEffortDelete(uploaded);
+    await bestEffortDelete(created);
     throw err;
   }
 
@@ -263,7 +321,13 @@ export const updateRemoteGame = async (
   const previous = await getRemoteGame(id);
   if (!previous) throw new Error('El juego ya no existe. Recarga la página.');
 
-  const { cardUrls, logoUrl, uploaded } = await uploadGameAssets(id, cards, logoFile, onProgress);
+  // Objects the saved game (or the form) still points to: never deletable by rollback.
+  const protectedIds = referencedIds([
+    ...previous.cards,
+    previous.logo,
+    ...cards.flatMap((c) => (c.kind === 'remote' ? [c.url] : [])),
+  ]);
+  const { cardUrls, logoUrl, created } = await uploadGameAssets(id, cards, logoFile, protectedIds, onProgress);
 
   onProgress?.({ phase: 'saving' });
   const payload: DocumentData = {
@@ -281,7 +345,7 @@ export const updateRemoteGame = async (
   try {
     await updateDoc(doc(db, 'games', id), payload);
   } catch (err) {
-    await bestEffortDelete(uploaded);
+    await bestEffortDelete(created);
     throw err;
   }
 
@@ -292,12 +356,14 @@ export const updateRemoteGame = async (
   // Only runs when we could confirm the latest document; otherwise we'd risk deleting live files.
   if (current) {
     const finalLogo = logoUrl ?? (resetLogo ? DEFAULT_LOGO : previous.logo);
-    const stillUsed = new Set([...cardUrls, finalLogo, ...current.cards, current.logo]);
+    // Compare by Storage object path: a re-added picture gets the same content-addressed path
+    // but possibly a different token, and must not be deleted.
+    const stillUsed = new Set([...cardUrls, finalLogo, ...current.cards, current.logo].map(storageIdentity));
     const orphaned = [...previous.cards, previous.logo]
-      .filter((url) => !stillUsed.has(url))
+      .filter((url) => !stillUsed.has(storageIdentity(url)))
       .map((url) => storageRefForOwnedUrl(url, id))
       .filter((r): r is StorageReference => r !== null);
-    await bestEffortDelete(orphaned);
+    await bestEffortDelete(filterDeletable(orphaned, stillUsed));
   }
 
   onProgress?.({ phase: 'done' });
