@@ -85,10 +85,6 @@ export default function gameAdminPlugin({ rootDir = process.cwd() } = {}) {
             json(res, 400, { ok: false, error: 'mínimo 2 cartas' });
             return;
           }
-          if (cards.length > 24) {
-            json(res, 400, { ok: false, error: 'máximo 24 cartas' });
-            return;
-          }
 
           const indexPath = path.join(rootDir, 'public', 'games', 'index.json');
           const indexRaw = await fs.readFile(indexPath, 'utf-8');

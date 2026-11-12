@@ -1,33 +1,52 @@
-import React from 'react';
-import { Card as CardType } from '../types';
+import React, { memo } from 'react';
+import type { Card as CardType } from '../types';
 
 interface CardProps {
   card: CardType;
-  onClick: (card: CardType) => void;
-  flipped?: boolean;
+  /** 1-based position on the board, used for the accessible name. */
+  position: number;
+  onFlip: (id: string) => void;
   disabled?: boolean;
   cardBackColor?: string;
   cardFaceBgColor?: string;
   backLogoUrl?: string;
 }
 
-const Card: React.FC<CardProps> = ({ card, onClick, cardBackColor = '#4a90e2', cardFaceBgColor, backLogoUrl }) => {
-  const handleClick = () => {
-    onClick(card);
-  };
+const Card: React.FC<CardProps> = ({
+  card,
+  position,
+  onFlip,
+  disabled = false,
+  cardBackColor,
+  cardFaceBgColor,
+  backLogoUrl,
+}) => {
+  const faceUp = card.flipped || card.matched;
+  const label = card.matched
+    ? `Carta ${position}: pareja encontrada`
+    : faceUp
+      ? `Carta ${position}: boca arriba`
+      : `Carta ${position}: boca abajo`;
 
   return (
-    <div className={`card ${card.flipped || card.matched ? 'flipped' : ''}`} onClick={handleClick}>
-      <div className="card-inner">
-        <div className="card-front" style={{ backgroundColor: cardBackColor }}>
-          {backLogoUrl && <img src={backLogoUrl} alt="card back" className="card-logo" />}
-        </div>
-        <div className="card-back" style={{ backgroundColor: cardFaceBgColor }}>
-          <img src={card.image} alt="card" className="card-image" />
-        </div>
-      </div>
-    </div>
+    <button
+      type="button"
+      className={`card${faceUp ? ' flipped' : ''}${card.matched ? ' matched' : ''}`}
+      onClick={() => onFlip(card.id)}
+      // Face-up cards stay focusable (aria-disabled) so keyboard focus is not lost mid-turn.
+      aria-disabled={disabled || faceUp}
+      aria-label={label}
+    >
+      <span className="card-inner">
+        <span className="card-front" style={{ backgroundColor: cardBackColor }}>
+          {backLogoUrl && <img src={backLogoUrl} alt="" className="card-logo" draggable={false} />}
+        </span>
+        <span className="card-back" style={{ backgroundColor: cardFaceBgColor }}>
+          <img src={card.image} alt="" className="card-image" draggable={false} loading="lazy" />
+        </span>
+      </span>
+    </button>
   );
 };
 
-export default Card;
+export default memo(Card);
