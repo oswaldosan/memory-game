@@ -1,414 +1,167 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth, isAdminEmail } from '../firebase';
-import {
-  deleteRemoteGame,
-  getRemoteGame,
-  updateRemoteGame,
-} from '../utils/gamesRemote';
-import { GameRegistryEntry, GameThemeOverride } from '../utils/gameUtils';
+import { deleteRemoteGame, getRemoteGame, updateRemoteGame } from '../utils/gamesRemote';
+import type { GameRegistryEntry } from '../utils/gameUtils';
+import AdminGate from './admin/AdminGate';
+import AdminHeader from './admin/AdminHeader';
+import GameForm from './admin/GameForm';
 
-type Status = 'idle' | 'loading' | 'submitting' | 'deleting' | 'success' | 'error';
+type LoadState =
+  | { kind: 'loading' }
+  | { kind: 'missing' }
+  | { kind: 'error'; message: string }
+  | { kind: 'ready'; game: GameRegistryEntry; version: number };
 
-interface ThemeForm {
-  bgType: 'solid' | 'gradient';
-  bgColor: string;
-  gradStart: string;
-  gradEnd: string;
-  textColor: string;
-  cardBackColor: string;
-  cardFaceBgColor: string;
-}
-
-const themeToForm = (t?: GameThemeOverride): ThemeForm => ({
-  bgType: (t?.layout?.backgroundType as 'solid' | 'gradient') || 'solid',
-  bgColor: t?.layout?.backgroundColor || '#ffffff',
-  gradStart: t?.layout?.gradientStart || '#667eea',
-  gradEnd: t?.layout?.gradientEnd || '#764ba2',
-  textColor: t?.appTextColor || '#1a1a1a',
-  cardBackColor: t?.cardBackColor || '#4a90e2',
-  cardFaceBgColor: t?.cardFaceBgColor || '#ffffff',
-});
-
-const formToTheme = (f: ThemeForm): GameThemeOverride => ({
-  appTextColor: f.textColor,
-  modalTextColor: f.textColor,
-  layout:
-    f.bgType === 'gradient'
-      ? {
-          backgroundType: 'gradient',
-          gradientStart: f.gradStart,
-          gradientEnd: f.gradEnd,
-          gradientDirection: '135deg',
-        }
-      : { backgroundType: 'solid', backgroundColor: f.bgColor },
-  cardBackColor: f.cardBackColor,
-  cardFaceBgColor: f.cardFaceBgColor,
-});
-
-const EditGame: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+const EditGameBody: React.FC<{ id: string; uid: string }> = ({ id, uid }) => {
   const navigate = useNavigate();
+  const [state, setState] = useState<LoadState>({ kind: 'loading' });
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const [user, setUser] = useState<User | null>(null);
-  const [authReady, setAuthReady] = useState(false);
-
-  const [game, setGame] = useState<GameRegistryEntry | null>(null);
-  const [title, setTitle] = useState('');
-  const [keepCards, setKeepCards] = useState<string[]>([]);
-  const [newCardFiles, setNewCardFiles] = useState<File[]>([]);
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [themeForm, setThemeForm] = useState<ThemeForm>(themeToForm());
-
-  const [status, setStatus] = useState<Status>('loading');
-  const [progress, setProgress] = useState('');
-  const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setAuthReady(true);
-    });
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-    if (!id) return;
-    setStatus('loading');
+  const load = useCallback(() => {
+    let cancelled = false;
+    setState({ kind: 'loading' });
     getRemoteGame(id)
-      .then((g) => {
-        if (!g) {
-          setStatus('error');
-          setMessage('Juego no encontrado en Firestore (¿es estático del repo?)');
-          return;
-        }
-        setGame(g);
-        setTitle(g.title);
-        setKeepCards(g.cards);
-        setThemeForm(themeToForm(g.theme));
-        setStatus('idle');
+      .then((game) => {
+        if (cancelled) return;
+        setState(game ? { kind: 'ready', game, version: 0 } : { kind: 'missing' });
       })
       .catch((err) => {
-        setStatus('error');
-        setMessage(err?.message || 'Error al cargar el juego');
+        if (cancelled) return;
+        setState({ kind: 'error', message: err instanceof Error ? err.message : 'Error al cargar el juego.' });
       });
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
-  const setTheme = <K extends keyof ThemeForm>(k: K, v: ThemeForm[K]) =>
-    setThemeForm((prev) => ({ ...prev, [k]: v }));
-
-  const handleRemoveCard = (url: string) => {
-    setKeepCards((prev) => prev.filter((u) => u !== url));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !id) return;
-    if (keepCards.length + newCardFiles.length < 2) {
-      setStatus('error');
-      setMessage('Tiene que quedar al menos 2 cartas');
-      return;
-    }
-    setStatus('submitting');
-    setMessage('');
-    setProgress('Preparando…');
-    try {
-      await updateRemoteGame(
-        {
-          id,
-          title: title.trim(),
-          theme: formToTheme(themeForm),
-          logoFile,
-          keepCards,
-          newCardFiles,
-        },
-        user.uid,
-        (p) => {
-          if (p.phase === 'card') setProgress(`Subiendo carta ${p.index}/${p.total}…`);
-          else if (p.phase === 'logo') setProgress('Subiendo logo…');
-          else if (p.phase === 'firestore') setProgress('Guardando configuración…');
-          else if (p.phase === 'done') setProgress('Listo');
-        }
-      );
-      setStatus('success');
-      setProgress('');
-      setMessage('Cambios guardados.');
-      setNewCardFiles([]);
-      setLogoFile(null);
-      const refreshed = await getRemoteGame(id);
-      if (refreshed) {
-        setGame(refreshed);
-        setKeepCards(refreshed.cards);
-      }
-    } catch (err: any) {
-      setStatus('error');
-      setProgress('');
-      const code = err?.code ? ` [${err.code}]` : '';
-      setMessage((err?.message || 'Error desconocido') + code);
-      console.error('[edit] updateRemoteGame falló', err);
-    }
-  };
+  useEffect(load, [load]);
 
   const handleDelete = async () => {
-    if (!id) return;
-    if (!confirm(`¿Borrar el juego "${id}" y todas sus imágenes? No se puede deshacer.`)) return;
-    setStatus('deleting');
-    setMessage('');
+    if (state.kind !== 'ready') return;
+    const ok = window.confirm(
+      `¿Eliminar "${state.game.title}" y todas sus imágenes? Esta acción no se puede deshacer.`
+    );
+    if (!ok) return;
+    setDeleting(true);
+    setDeleteError(null);
     try {
       await deleteRemoteGame(id);
-      navigate('/admin', { replace: true });
-    } catch (err: any) {
-      setStatus('error');
-      setMessage(err?.message || 'Error al borrar');
+      navigate('/admin', { replace: true, state: { flash: `Juego "${state.game.title}" eliminado.` } });
+    } catch (err) {
+      setDeleting(false);
+      setDeleteError(err instanceof Error ? err.message : 'No se pudo eliminar el juego.');
     }
   };
 
-  if (!authReady || status === 'loading') {
+  if (state.kind === 'loading') {
     return (
-      <div style={styles.wrap}>
-        <p>Cargando…</p>
+      <div className="adm-center" role="status">
+        <span className="adm-spinner" aria-hidden="true" />
+        Cargando juego…
       </div>
     );
   }
 
-  if (!user || !isAdminEmail(user.email)) {
+  if (state.kind === 'missing' || state.kind === 'error') {
     return (
-      <div style={styles.wrap}>
-        <h1 style={styles.title}>Editar juego</h1>
-        <p>Necesitás iniciar sesión como admin.</p>
-        <Link to="/admin">← Ir a Admin</Link>
+      <div className="adm-empty-state">
+        <p className="adm-empty-state__title">
+          {state.kind === 'missing' ? 'Juego no encontrado' : 'No se pudo cargar el juego'}
+        </p>
+        <p className="adm-muted">
+          {state.kind === 'missing'
+            ? `No existe un juego editable con el identificador "${id}". Los juegos incluidos en el repositorio no se editan desde aquí.`
+            : state.message}
+        </p>
+        <div className="adm-row">
+          {state.kind === 'error' && (
+            <button type="button" className="adm-btn" onClick={load}>
+              Reintentar
+            </button>
+          )}
+          <Link to="/admin" className="adm-btn adm-btn--primary">
+            Volver a juegos
+          </Link>
+        </div>
       </div>
     );
   }
 
-  if (!game) {
-    return (
-      <div style={styles.wrap}>
-        <h1 style={styles.title}>Editar juego</h1>
-        <p style={styles.error}>{message || 'Juego no disponible'}</p>
-        <Link to="/admin">← Volver</Link>
-      </div>
-    );
-  }
+  const { game, version } = state;
 
   return (
-    <div style={styles.wrap}>
-      <div style={styles.topBar}>
-        <h1 style={styles.title}>Editar: {game.id}</h1>
-        <Link to="/admin">← Admin</Link>
+    <>
+      <div className="adm-page-head">
+        <div>
+          <h1 className="adm-h1">Editar juego</h1>
+          <p className="adm-muted">
+            {game.title} ·{' '}
+            <Link to={`/g/${game.id}`} className="adm-link">
+              Abrir juego ↗
+            </Link>
+          </p>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <Field label="Título">
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            style={styles.input}
-          />
-        </Field>
+      {savedAt && (
+        <p className="adm-alert adm-alert--success" role="status">
+          Cambios guardados a las {savedAt.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}.
+        </p>
+      )}
+      {deleteError && (
+        <p className="adm-alert adm-alert--error" role="alert">
+          {deleteError}
+        </p>
+      )}
 
-        <Field label="Logo actual">
-          <img src={game.logo} alt="logo" style={styles.logoPreview} />
-        </Field>
-        <Field label="Reemplazar logo (opcional)">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
-          />
-        </Field>
-
-        <Field label={`Cartas actuales (${keepCards.length})`}>
-          <div style={styles.cardGrid}>
-            {keepCards.map((url) => (
-              <div key={url} style={styles.cardThumb}>
-                <img src={url} alt="carta" style={styles.cardImg} />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveCard(url)}
-                  style={styles.removeBtn}
-                  title="Quitar (no borra del Storage)"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-            {keepCards.length === 0 && <small style={styles.hint}>Sin cartas.</small>}
-          </div>
-        </Field>
-
-        <Field label={`Agregar cartas nuevas (${newCardFiles.length})`}>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={(e) => setNewCardFiles(Array.from(e.target.files || []))}
-          />
-          <small style={styles.hint}>
-            Total tras guardar: {keepCards.length + newCardFiles.length}
-          </small>
-        </Field>
-
-        <fieldset style={styles.fieldset}>
-          <legend>Tema</legend>
-          <Field label="Tipo de fondo">
-            <select
-              value={themeForm.bgType}
-              onChange={(e) => setTheme('bgType', e.target.value as 'solid' | 'gradient')}
-              style={styles.input}
-            >
-              <option value="solid">Sólido</option>
-              <option value="gradient">Gradiente</option>
-            </select>
-          </Field>
-          {themeForm.bgType === 'solid' ? (
-            <Field label="Color de fondo">
-              <input
-                type="color"
-                value={themeForm.bgColor}
-                onChange={(e) => setTheme('bgColor', e.target.value)}
-              />
-            </Field>
-          ) : (
-            <>
-              <Field label="Gradiente inicio">
-                <input
-                  type="color"
-                  value={themeForm.gradStart}
-                  onChange={(e) => setTheme('gradStart', e.target.value)}
-                />
-              </Field>
-              <Field label="Gradiente fin">
-                <input
-                  type="color"
-                  value={themeForm.gradEnd}
-                  onChange={(e) => setTheme('gradEnd', e.target.value)}
-                />
-              </Field>
-            </>
-          )}
-          <Field label="Color de texto">
-            <input
-              type="color"
-              value={themeForm.textColor}
-              onChange={(e) => setTheme('textColor', e.target.value)}
-            />
-          </Field>
-          <Field label="Reverso de carta">
-            <input
-              type="color"
-              value={themeForm.cardBackColor}
-              onChange={(e) => setTheme('cardBackColor', e.target.value)}
-            />
-          </Field>
-          <Field label="Frente de carta">
-            <input
-              type="color"
-              value={themeForm.cardFaceBgColor}
-              onChange={(e) => setTheme('cardFaceBgColor', e.target.value)}
-            />
-          </Field>
-        </fieldset>
-
-        <div style={styles.actions}>
-          <button type="submit" disabled={status === 'submitting'} style={styles.button}>
-            {status === 'submitting' ? progress || 'Guardando…' : 'Guardar cambios'}
-          </button>
+      <GameForm
+        // Remount with fresh server data after each save so "dirty" tracking restarts cleanly.
+        key={version}
+        mode="edit"
+        initial={{
+          id: game.id,
+          title: game.title,
+          logoUrl: game.logo,
+          cards: game.cards,
+          theme: game.theme,
+          maxMoves: game.maxMoves,
+        }}
+        submitLabel="Guardar cambios"
+        onSubmit={(input, onProgress) => updateRemoteGame(input, uid, onProgress)}
+        onSaved={(updated) => {
+          setSavedAt(new Date());
+          setState({ kind: 'ready', game: updated, version: version + 1 });
+        }}
+        secondaryAction={
           <button
             type="button"
-            onClick={handleDelete}
-            disabled={status === 'deleting'}
-            style={styles.dangerBtn}
+            className="adm-btn adm-btn--danger"
+            onClick={() => void handleDelete()}
+            disabled={deleting}
           >
-            {status === 'deleting' ? 'Borrando…' : 'Borrar juego'}
+            {deleting ? 'Eliminando…' : 'Eliminar'}
           </button>
-        </div>
-      </form>
-
-      {status === 'submitting' && progress && <p style={styles.progress}>{progress}</p>}
-      {message && status !== 'submitting' && (
-        <p style={status === 'error' ? styles.error : styles.success}>{message}</p>
-      )}
-    </div>
+        }
+      />
+    </>
   );
 };
 
-const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
-  <label style={styles.field}>
-    <span style={styles.label}>{label}</span>
-    {children}
-  </label>
-);
+const EditGame: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
 
-const styles: Record<string, React.CSSProperties> = {
-  wrap: {
-    maxWidth: 720,
-    margin: '0 auto',
-    padding: 24,
-    color: '#1a1a1a',
-    fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
-  },
-  topBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: '1.6rem', marginBottom: 8 },
-  form: { display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 },
-  field: { display: 'flex', flexDirection: 'column', gap: 4 },
-  label: { fontWeight: 600, fontSize: '0.9rem' },
-  input: { padding: '8px 10px', border: '1px solid #ccc', borderRadius: 6, fontSize: '0.95rem' },
-  hint: { color: '#666', fontSize: '0.8rem' },
-  fieldset: {
-    border: '1px solid #e3e3e3',
-    borderRadius: 8,
-    padding: 12,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 10,
-  },
-  logoPreview: { maxWidth: 120, maxHeight: 120, objectFit: 'contain' },
-  cardGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
-    gap: 8,
-  },
-  cardThumb: { position: 'relative', border: '1px solid #ddd', borderRadius: 6, padding: 4 },
-  cardImg: { width: '100%', height: 80, objectFit: 'cover', borderRadius: 4 },
-  removeBtn: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 22,
-    height: 22,
-    borderRadius: '50%',
-    border: 0,
-    background: 'rgba(192, 57, 43, 0.9)',
-    color: '#fff',
-    cursor: 'pointer',
-    fontSize: 14,
-    lineHeight: 1,
-  },
-  actions: { display: 'flex', gap: 12, flexWrap: 'wrap' },
-  button: {
-    padding: '10px 16px',
-    background: '#0056b3',
-    color: '#fff',
-    border: 0,
-    borderRadius: 6,
-    fontSize: '1rem',
-    cursor: 'pointer',
-  },
-  dangerBtn: {
-    padding: '10px 16px',
-    background: '#fff',
-    color: '#c0392b',
-    border: '1px solid #c0392b',
-    borderRadius: 6,
-    fontSize: '1rem',
-    cursor: 'pointer',
-  },
-  error: { color: '#c0392b' },
-  success: { color: '#1e7e34' },
-  progress: { color: '#0056b3', fontStyle: 'italic' },
+  return (
+    <AdminGate title="Editar juego">
+      {({ user, logout }) => (
+        <>
+          <AdminHeader email={user.email} onLogout={logout} back={{ to: '/admin', label: 'Juegos' }} />
+          <main className="adm-main">{id ? <EditGameBody id={id} uid={user.uid} /> : null}</main>
+        </>
+      )}
+    </AdminGate>
+  );
 };
 
 export default EditGame;

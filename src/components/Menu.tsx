@@ -1,81 +1,82 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { loadGameRegistry, GameRegistryEntry } from '../utils/gameUtils';
+import { loadGameRegistry, type GameRegistryEntry } from '../utils/gameUtils';
+import '../styles/admin.css';
+
+type MenuState =
+  | { kind: 'loading' }
+  | { kind: 'error'; message: string }
+  | { kind: 'ready'; games: GameRegistryEntry[] };
+
+const linkFor = (id: string) => (id === 'ficohsa' ? '/' : `/g/${id}`);
 
 const Menu: React.FC = () => {
-  const [games, setGames] = useState<GameRegistryEntry[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<MenuState>({ kind: 'loading' });
 
   useEffect(() => {
+    let cancelled = false;
     loadGameRegistry()
-      .then((reg) => setGames(reg.games || []))
-      .catch((e) => setError(e.message || 'Error al cargar juegos'));
+      .then((reg) => !cancelled && setState({ kind: 'ready', games: reg.games || [] }))
+      .catch((e) => !cancelled && setState({ kind: 'error', message: e?.message || 'Error al cargar juegos' }));
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const linkFor = (id: string) => (id === 'ficohsa' ? '/' : `/g/${id}`);
-
   return (
-    <div style={styles.wrap}>
-      <h1 style={styles.title}>Memory Games</h1>
-      <p style={styles.subtitle}>
-        Elegí un juego o <Link to="/admin" style={styles.adminLink}>creá uno nuevo</Link>.
-      </p>
-      {error && <p style={styles.error}>{error}</p>}
-      <div style={styles.grid}>
-        {games.map((g) => (
-          <Link key={g.id} to={linkFor(g.id)} style={styles.card}>
-            <div style={styles.logoBox}>
-              <img src={g.logo} alt={g.title} style={styles.logo} />
-            </div>
-            <div style={styles.cardTitle}>{g.title}</div>
-            <div style={styles.cardId}>{g.id}</div>
+    <div className="adm">
+      <main className="adm-main adm-main--wide">
+        <div className="adm-page-head">
+          <div>
+            <h1 className="adm-h1">Memory Games</h1>
+            <p className="adm-muted">Elige un juego para empezar.</p>
+          </div>
+          <Link to="/admin" className="adm-btn">
+            Administrar juegos
           </Link>
-        ))}
-      </div>
+        </div>
+
+        {state.kind === 'error' && (
+          <p className="adm-alert adm-alert--error" role="alert">
+            {state.message}
+          </p>
+        )}
+
+        {state.kind === 'ready' && state.games.length === 0 && (
+          <div className="adm-empty-state">
+            <p className="adm-empty-state__title">No hay juegos disponibles</p>
+            <Link to="/admin" className="adm-btn adm-btn--primary">
+              Crear un juego
+            </Link>
+          </div>
+        )}
+
+        <ul className="adm-menu-grid" aria-busy={state.kind === 'loading'}>
+          {state.kind === 'loading'
+            ? [0, 1, 2, 3].map((i) => (
+                <li key={i} className="adm-menu-card adm-menu-card--skeleton" aria-hidden="true">
+                  <span className="adm-skel adm-skel--square" />
+                  <span className="adm-skel adm-skel--text" />
+                </li>
+              ))
+            : state.kind === 'ready' &&
+              state.games.map((g) => (
+                <li key={g.id}>
+                  <Link to={linkFor(g.id)} className="adm-menu-card">
+                    <span className="adm-menu-card__logo">
+                      <img src={g.logo} alt="" loading="lazy" />
+                    </span>
+                    <span className="adm-menu-card__title">{g.title}</span>
+                    <span className="adm-muted adm-menu-card__meta">
+                      {g.cards.length} {g.cards.length === 1 ? 'pareja' : 'parejas'}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+        </ul>
+      </main>
     </div>
   );
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  wrap: {
-    maxWidth: 960,
-    margin: '0 auto',
-    padding: 24,
-    color: '#1a1a1a',
-    fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
-  },
-  title: { fontSize: '2rem', marginBottom: 4 },
-  subtitle: { marginTop: 0, marginBottom: 24, color: '#555' },
-  adminLink: { color: '#0056b3', textDecoration: 'underline' },
-  error: { color: '#c0392b' },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-    gap: 16,
-  },
-  card: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: 16,
-    border: '1px solid #e3e3e3',
-    borderRadius: 12,
-    background: '#fff',
-    textDecoration: 'none',
-    color: 'inherit',
-    boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
-  },
-  logoBox: {
-    width: 120,
-    height: 120,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  logo: { maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' },
-  cardTitle: { fontWeight: 600, fontSize: '1.05rem' },
-  cardId: { fontSize: '0.8rem', color: '#888', marginTop: 4 },
 };
 
 export default Menu;

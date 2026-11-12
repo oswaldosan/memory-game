@@ -1,79 +1,103 @@
 # Memory Card Game
 
-This project is a simple matching card game built with React and TypeScript using Vite. The game allows players to match pairs of cards by flipping them over. The images on the cards are randomized at the start of each game, and players can customize the game by providing their own images and settings.
+A memory (pairs) game built with React 19, TypeScript and Vite. Games are defined either as static
+JSON in the repo or created from the built-in admin and stored in Firebase. Each game can have
+**any number of pairs**.
 
-## Project Structure
+## Getting started
 
-The project is organized as follows:
-
-```
-memory-card-game
-├── src
-│   ├── components
-│   │   ├── Card.tsx          # Represents an individual card in the game
-│   │   ├── GameBoard.tsx     # Renders the grid of cards and manages game logic
-│   │   └── GameControls.tsx   # Provides controls for starting a new game
-│   ├── hooks
-│   │   └── useMemoryGame.ts   # Custom hook for managing game state and logic
-│   ├── types
-│   │   └── index.ts           # TypeScript types and interfaces
-│   ├── utils
-│   │   └── gameUtils.ts       # Utility functions for shuffling cards and generating game state
-│   ├── styles
-│   │   └── game.css           # CSS styles for the game
-│   ├── App.tsx                # Main component of the application
-│   └── main.tsx               # Entry point of the application
-├── public
-│   ├── images
-│   │   └── placeholder.jpg     # Placeholder image for cards
-│   └── logo.png               # Logo image displayed on the back of the cards
-├── gameConfig.json            # Initial configuration for the game
-├── package.json               # npm configuration file
-├── tsconfig.json              # TypeScript configuration file
-└── README.md                  # Documentation for the project
+```bash
+npm install
+npm run dev        # http://localhost:5173
+npm test           # unit tests (Vitest)
+npm run lint       # ESLint
+npm run build      # type-check + production build
 ```
 
-## Getting Started
+`predev` / `prebuild` run `scripts/sync-ficohsa-assets.mjs`, which scans `public/images/ficohsa`
+and `public/logos/ficohsa` and writes `public/games/ficohsa.assets.json`.
 
-To get started with the Memory Card Game, follow these steps:
+## Routes
 
-1. **Clone the repository:**
-   ```
-   git clone <repository-url>
-   cd memory-card-game
-   ```
+| Route              | What it is                                              |
+| ------------------ | ------------------------------------------------------- |
+| `/`                | Ficohsa game (main game)                                |
+| `/g/:gameId`       | Play any game by id                                     |
+| `/menu`            | List of all games (static + Firebase)                   |
+| `/admin`           | Admin: list of Firebase games (Google sign-in required) |
+| `/admin/new`       | Create a game                                           |
+| `/admin/edit/:id`  | Edit / delete a game                                    |
 
-2. **Install dependencies:**
-   ```
-   npm install
-   ```
+Admin routes are lazy-loaded, so players never download the admin code.
 
-3. **Run the development server:**
-   ```
-   npm run dev
-   ```
+## Where games come from
 
-4. **Open your browser:**
-   Navigate to `http://localhost:3000` to see the game in action.
+1. **Static games**: `public/games/index.json`. Entries with `useFicohsaAssetBundle` get their
+   cards/logo from `public/games/ficohsa.assets.json`.
+2. **Firebase games**: Firestore collection `games/{id}`. Images live in Firebase Storage under
+   `games/{id}/…`; the document only stores download URLs, so the number of pairs is not limited
+   by Firestore's 1 MiB document size.
 
-## Game Rules
+Both are merged by `loadGameRegistry()` (`src/utils/gameUtils.ts`). Static ids win on conflicts.
 
-- The game consists of a grid of cards, each with an image on one side and a logo on the other.
-- Players take turns flipping over two cards at a time, trying to find matching pairs.
-- If a player finds a match, the cards remain face up. If not, they are flipped back over.
-- The game ends when all pairs have been matched.
+### Game document shape
 
-## Customization
+```ts
+{
+  id: string;          // slug: a-z, 0-9, "-"
+  title: string;
+  logo: string;        // URL, defaults to /images/logo.png
+  cards: string[];     // one URL per pair
+  theme?: GameThemeOverride;
+  maxMoves?: number;   // optional; otherwise 5 moves per pair (gameConfig.json → movesPerPair)
+}
+```
 
-You can customize the game by modifying the `gameConfig.json` file. This file allows you to specify:
+## Admin
 
-- The images to be used for the cards.
-- The background color of the game.
-- The logo displayed on the back of the cards.
+- Sign in with Google; allowed emails are listed in `ADMIN_EMAILS` (`src/firebase.ts`). The real
+  enforcement must live in the Firestore/Storage security rules.
+- The create/edit form (`src/components/admin/GameForm.tsx`) supports drag-and-drop images,
+  reordering, removing, a live theme preview and an optional move limit.
+- Images are downscaled in the browser before upload (WebP, or JPEG on browsers that can't
+  encode WebP; images with transparency keep their original format).
+- When editing, images that are no longer used are removed from Storage after a successful save.
 
-## Best Practices
+## Project structure
 
-- The project follows the DRY (Don't Repeat Yourself) principle, ensuring clean and maintainable code.
-- Functional programming concepts are used throughout the application to manage state and logic.
+```
+src
+├── App.tsx                       # Game screen (theme, board, controls, modal)
+├── main.tsx                      # Routes
+├── gameConfig.json               # Base theme, card size, movesPerPair
+├── firebase.ts                   # Firebase init + admin emails
+├── hooks
+│   ├── useMemoryGame.ts          # Loads a game and runs the reducer (timers, restart)
+│   └── useAdminAuth.ts           # Google sign-in state for the admin
+├── utils
+│   ├── gameReducer.ts            # Pure game state machine (moves, matches, win/loss, timer)
+│   ├── gameUtils.ts              # Deck creation, shuffle, board columns, registry loading
+│   ├── gamesRemote.ts            # Firestore/Storage CRUD for games
+│   ├── gameForm.ts               # Admin form validation + theme mapping
+│   ├── cardItems.ts              # Admin image list helpers
+│   ├── imageProcessing.ts        # Accepted formats + client-side compression
+│   └── async.ts                  # Bounded-concurrency helper for uploads
+├── components
+│   ├── Card.tsx / GameBoard.tsx / GameControls.tsx / GameOverModal.tsx
+│   ├── Menu.tsx / Admin.tsx / CreateGame.tsx / EditGame.tsx
+│   └── admin/                    # AdminGate, AdminHeader, GameForm, CardImagesEditor, ThemePreview
+└── styles
+    ├── game.css                  # Game styles (themed through CSS variables)
+    └── admin.css                 # Admin + menu styles (scoped under .adm)
+```
 
-Enjoy playing the Memory Card Game!
+## Game rules
+
+- Flip two cards per move. A matching pair stays face up; otherwise both flip back.
+- You win by finding every pair before running out of moves. The timer starts on the first flip.
+
+## Tests
+
+Pure logic is covered with Vitest (`src/utils/*.test.ts`): deck creation and shuffle, board
+layout, the game reducer, form validation, theme mapping, image list handling and upload
+concurrency.

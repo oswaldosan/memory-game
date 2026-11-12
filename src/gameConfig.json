@@ -35,46 +35,11 @@
       "height": "80px"
     },
     "board": {
-      "rows": 3,
-      "cols": 3,
-      "totalPairs": 4,
-      "maxMoves": 20,
+      "movesPerPair": 5,
       "cardSize": {
         "width": "115px",
         "height": "161px"
       }
     }
-  },
-  "cards": [
-    {
-      "id": 1,
-      "image": "/images/initialPhotos/1.png",
-      "matched": false
-    },
-    {
-      "id": 2,
-      "image": "/images/initialPhotos/2.png",
-      "matched": false
-    },
-    {
-      "id": 3,
-      "image": "/images/initialPhotos/3.png",
-      "matched": false
-    },
-    {
-      "id": 4,
-      "image": "/images/initialPhotos/4.png",
-      "matched": false
-    },
-    {
-      "id": 5,
-      "image": "/images/initialPhotos/5.png",
-      "matched": false
-    },
-    {
-      "id": 6,
-      "image": "/images/initialPhotos/6.png",
-      "matched": false
-    }
-  ]
+  }
 }

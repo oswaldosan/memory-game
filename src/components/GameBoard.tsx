@@ -1,42 +1,49 @@
 import React from 'react';
-import { Card as CardType } from '../types';
-import { useMemoryGame } from '../hooks/useMemoryGame';
+import type { Card as CardType } from '../types';
+import { getBoardColumns } from '../utils/gameUtils';
 import Card from './Card';
-import '../styles/game.css';
 
 interface GameBoardProps {
-  disabled?: boolean;
   cards: CardType[];
-  onCardClick: (card: CardType) => void;
+  onCardClick: (id: string) => void;
+  disabled?: boolean;
   cardBackColor?: string;
   cardFaceBgColor?: string;
   backLogoUrl?: string;
 }
 
-const GameBoard: React.FC<GameBoardProps> = ({ cards, onCardClick, cardBackColor, cardFaceBgColor, backLogoUrl }) => {
-  const { gameStatus } = useMemoryGame();
+/** Mobile never goes beyond 4 columns so cards stay tappable; the board scrolls instead. */
+const MOBILE_MAX_COLUMNS = 4;
+
+const GameBoard: React.FC<GameBoardProps> = ({
+  cards,
+  onCardClick,
+  disabled = false,
+  cardBackColor,
+  cardFaceBgColor,
+  backLogoUrl,
+}) => {
+  const cols = getBoardColumns(cards.length);
+  const style = {
+    '--cols-desktop': cols,
+    '--cols-mobile': Math.min(cols, MOBILE_MAX_COLUMNS),
+  } as React.CSSProperties;
 
   return (
-    <div className="game-board">
-      {gameStatus === 'playing' ? (
-        cards.map((card) => (
-          <Card
-            key={card.id}
-            card={card}
-            onClick={onCardClick}
-            flipped={card.flipped}
-            disabled={gameStatus !== 'playing'}
-            cardBackColor={cardBackColor}
-            cardFaceBgColor={cardFaceBgColor}
-            backLogoUrl={backLogoUrl}
-          />
-        ))
-      ) : (
-        <div className="game-over">
-          <h2>{gameStatus === 'won' ? 'You Won!' : 'Game Over'}</h2>
-        </div>
-      )}
-    </div>
+    <section className="game-board" style={style} aria-label="Tablero de cartas">
+      {cards.map((card, index) => (
+        <Card
+          key={card.id}
+          card={card}
+          position={index + 1}
+          onFlip={onCardClick}
+          disabled={disabled}
+          cardBackColor={cardBackColor}
+          cardFaceBgColor={cardFaceBgColor}
+          backLogoUrl={backLogoUrl}
+        />
+      ))}
+    </section>
   );
 };
 

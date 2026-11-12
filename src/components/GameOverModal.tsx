@@ -1,51 +1,119 @@
-import React, { useEffect, useState } from 'react';
-import { GameOverModalProps } from '../types';
-import gameConfig from '../gameConfig.json';
-import { resolveGameAssets } from '../utils/gameUtils';
+import React, { useEffect, useId, useRef } from 'react';
+import { formatDuration } from '../utils/gameUtils';
 
-const GameOverModal: React.FC<GameOverModalProps> = ({ 
-  isOpen, 
-  isWin, 
-  moves, 
-  onTryAgain, 
-  onClose 
+interface GameOverModalProps {
+  isOpen: boolean;
+  isWin: boolean;
+  moves: number;
+  maxMoves: number;
+  matchedPairs: number;
+  totalPairs: number;
+  elapsedMs: number;
+  modalStyle?: React.CSSProperties;
+  onTryAgain: () => void;
+  onClose: () => void;
+}
+
+const GameOverModal: React.FC<GameOverModalProps> = ({
+  isOpen,
+  isWin,
+  moves,
+  maxMoves,
+  matchedPairs,
+  totalPairs,
+  elapsedMs,
+  modalStyle,
+  onTryAgain,
+  onClose,
 }) => {
-  const [modalStyle, setModalStyle] = useState<React.CSSProperties>({});
+  const titleId = useId();
+  const descId = useId();
+  const primaryRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const base = gameConfig.gameSettings.theme.modal as any;
-    resolveGameAssets().then(({ theme }) => {
-      const modal = theme?.modal ? { ...base, ...theme.modal } : base;
-      if (modal.backgroundType === 'gradient') {
-        setModalStyle({
-          background: `linear-gradient(${modal.gradientDirection}, ${modal.gradientStart} 0%, ${modal.gradientEnd} 100%)`
-        });
-      } else {
-        setModalStyle({
-          backgroundColor: modal.backgroundColor || '#667eea'
-        });
+    if (!isOpen) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    primaryRef.current?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
       }
-    });
-  }, []);
+      // Minimal focus trap: keep Tab cycling inside the dialog.
+      if (e.key === 'Tab' && dialogRef.current) {
+        const focusables = dialogRef.current.querySelectorAll<HTMLElement>('button');
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previouslyFocused?.focus?.();
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" style={modalStyle} onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className="modal-content"
+        style={modalStyle}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descId}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
-          <h2>{isWin ? '🎉 ¡Felicidades!' : '😔 ¡Juego Terminado!'}</h2>
+          <span className="modal-emoji" aria-hidden="true">
+            {isWin ? '🎉' : '😔'}
+          </span>
+          <h2 id={titleId}>{isWin ? '¡Felicidades!' : '¡Juego terminado!'}</h2>
         </div>
         <div className="modal-body">
-          {isWin ? (
-            <p>¡Has ganado en {moves} movimientos!</p>
-          ) : (
-            <p>Se agotaron los movimientos. ¡Intenta de nuevo!</p>
-          )}
+          <p id={descId}>
+            {isWin
+              ? `Encontraste todas las parejas en ${moves} movimientos.`
+              : 'Se agotaron los movimientos. ¡Inténtalo de nuevo!'}
+          </p>
+          <dl className="modal-stats">
+            <div>
+              <dt>Movimientos</dt>
+              <dd>
+                {moves}/{maxMoves}
+              </dd>
+            </div>
+            <div>
+              <dt>Parejas</dt>
+              <dd>
+                {matchedPairs}/{totalPairs}
+              </dd>
+            </div>
+            <div>
+              <dt>Tiempo</dt>
+              <dd>{formatDuration(elapsedMs)}</dd>
+            </div>
+          </dl>
         </div>
         <div className="modal-actions">
-          <button className="button primary" onClick={onTryAgain}>
-            Intenta de Nuevo
+          <button ref={primaryRef} type="button" className="button primary" onClick={onTryAgain}>
+            {isWin ? 'Jugar de nuevo' : 'Intentar de nuevo'}
+          </button>
+          <button type="button" className="button secondary" onClick={onClose}>
+            Ver tablero
           </button>
         </div>
       </div>
