@@ -425,6 +425,12 @@
   font-size: 0.85rem;
 }
 
+.adm-game__warn {
+  align-self: flex-start;
+  margin-top: 4px;
+  text-decoration: none;
+}
+
 .adm-game__actions {
   display: flex;
   gap: 6px;
@@ -683,6 +689,17 @@
 .adm-chip--new {
   background: var(--adm-primary-soft);
   color: var(--adm-primary);
+}
+
+.adm-chip--dup {
+  background: var(--adm-warning-soft);
+  color: var(--adm-warning);
+  border: 1px solid #f2dca2;
+}
+
+.adm-thumb.is-duplicate {
+  border-color: #e9b949;
+  box-shadow: 0 0 0 2px rgba(233, 185, 73, 0.25);
 }
 
 .adm-empty {

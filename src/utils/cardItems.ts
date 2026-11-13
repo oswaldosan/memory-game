@@ -1,10 +1,24 @@
 import type { CardSource } from './gamesRemote';
+import type { ContentKey, FileHashes } from './imageIdentity';
 import { MAX_SOURCE_BYTES, formatBytes, isAcceptedImage } from './imageProcessing';
 
 /** A card image slot in the admin editor. `key` is stable across reorders. */
 export type CardItem =
-  | { key: string; kind: 'remote'; url: string }
-  | { key: string; kind: 'local'; file: File; previewUrl: string };
+  | {
+      key: string;
+      kind: 'remote';
+      url: string;
+      /** Resolved lazily from Storage metadata; `undefined` = not looked up yet, `null` = unknown. */
+      contentKey?: ContentKey | null;
+    }
+  | {
+      key: string;
+      kind: 'local';
+      file: File;
+      previewUrl: string;
+      hashes?: FileHashes | null;
+      contentKey?: ContentKey | null;
+    };
 
 export interface RejectedFile {
   name: string;
@@ -47,7 +61,9 @@ export const remoteItems = (urls: readonly string[]): CardItem[] =>
   urls.map((url) => ({ key: nextItemKey(), kind: 'remote', url }));
 
 export const toCardSources = (items: readonly CardItem[]): CardSource[] =>
-  items.map((i) => (i.kind === 'remote' ? { kind: 'remote', url: i.url } : { kind: 'local', file: i.file }));
+  items.map((i) =>
+    i.kind === 'remote' ? { kind: 'remote', url: i.url } : { kind: 'local', file: i.file, hashes: i.hashes ?? undefined }
+  );
 
 export const itemSrc = (item: CardItem) => (item.kind === 'remote' ? item.url : item.previewUrl);
 

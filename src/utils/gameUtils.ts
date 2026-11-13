@@ -1,5 +1,6 @@
 import type { Card } from '../types';
 import gameConfig from '../gameConfig.json';
+import { dedupeImagesByContent } from './imageIdentity';
 
 /** Logo used when a game has none configured. */
 export const DEFAULT_LOGO = '/images/logo.png';
@@ -261,8 +262,12 @@ export const resolveGameAssets = async (explicitGameId?: string): Promise<Resolv
   }
 
   // `loadGameRegistry` has already merged the asset bundle into bundle-backed entries.
+  // Content dedupe: the same picture uploaded twice (different URLs) must form ONE pair,
+  // otherwise matching two identical-looking cards counts as a mismatch. Best effort and
+  // time-boxed; falls back to URL dedupe if Storage metadata can't be read.
+  const images = await dedupeImagesByContent(normalizeImages(entry.cards));
   return {
-    images: normalizeImages(entry.cards),
+    images,
     logoUrl: entry.logo,
     gameId: entry.id,
     title: entry.title,

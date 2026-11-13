@@ -141,6 +141,8 @@ const App: React.FC<AppProps> = ({ routeGameId }) => {
         onTryAgain={game.handleNewGame}
         onClose={closeModal}
       />
+
+      <footer className="app-version">v{__APP_VERSION__}</footer>
     </main>
   );
 };
